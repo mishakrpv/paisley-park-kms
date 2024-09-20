@@ -28,6 +28,8 @@ func main() {
 
 	r := gin.Default()
 
+	r.Use(gin.Recovery())
+
 	configureRoutes(r)
 
 	r.Run(":3003")
@@ -39,9 +41,15 @@ func configureRoutes(r *gin.Engine) {
 			"message": "pong",
 		})
 	})
-	r.GET("/keys", routes.GETKeys)
 
-	r.POST("/keys", routes.POSTKeys)
+	authorized := r.Group("/")
+
+	authorized.Use(RequireAuthorization())
+	{
+		authorized.GET("/keys", routes.GETKeys)
+	
+		authorized.POST("/keys", routes.POSTKeys)
+	}
 }
 
 func loadConfiguration() error {
