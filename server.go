@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -16,7 +17,13 @@ import (
 
 func main() {
 	viper.AutomaticEnv()
+	viper.SetConfigFile(".env")
+	err := viper.ReadInConfig()
+	if err != nil {
+		zap.L().Fatal("Failed to read in config", zap.Error(err))
+	}
 
+	configureLogger()
 	migrateDb(viper.GetString("CONNECTION_STRINGS__DB_CONNECTION"))
 
 	r := gin.Default()
@@ -37,10 +44,29 @@ func configureRoutes(r *gin.Engine) {
 	r.POST("/keys", routes.POSTKeys)
 }
 
+func configureLogger() {
+	var logger *zap.Logger
+
+	env := viper.GetString("APP_ENV")
+
+	if env == "production" {
+		logger = zap.Must(zap.NewProduction())
+	} else {
+		logger = zap.Must(zap.NewDevelopment())
+	}
+
+	zap.ReplaceGlobals(logger)
+
+	defer logger.Sync()
+
+	logger.Info("Zap logger configured successfully",
+		zap.String("environment", env))
+}
+
 func migrateDb(dsn string) {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		panic(err.Error)
+		zap.L().Fatal(err.Error())
 	}
 
 	migrationsPath := "infrastructure/migrations"
@@ -62,18 +88,18 @@ func migrateDb(dsn string) {
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	for _, file := range files {
 		sqlScript, err := os.ReadFile(filepath.Join(migrationsPath, file.Name()))
 		if err != nil {
-			panic(err)
+			zap.L().Error("An error occured", zap.Error(err))
 		}
 
 		err = db.Exec(string(sqlScript)).Error
 		if err != nil {
-			panic(err)
+			zap.L().Error("An error occured", zap.Error(err))
 		}
 	}
 }

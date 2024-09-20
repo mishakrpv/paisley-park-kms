@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -16,7 +17,7 @@ func NewMySqlDekRepository(dsn string) interfaces.DataEncryptionKeyRepository {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	if err != nil {
-		panic(err.Error)
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	repository := new(MySqlDekRepository)

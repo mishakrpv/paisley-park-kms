@@ -2,6 +2,8 @@ package util
 
 import (
 	"crypto/rand"
+
+	"go.uber.org/zap"
 )
 
 func NewByteSequence(length int) *[]byte {
@@ -9,7 +11,7 @@ func NewByteSequence(length int) *[]byte {
 
 	_, err := rand.Read(randomBytes)
 	if err != nil {
-		panic(err.Error)
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	return &randomBytes

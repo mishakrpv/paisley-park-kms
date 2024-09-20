@@ -5,8 +5,9 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"io"
+
+	"go.uber.org/zap"
 )
 
 func Encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
@@ -15,21 +16,22 @@ func Encrypt(stringToEncrypt string, keyString string) (encryptedString string) 
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err.Error())
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	nonce := make([]byte, aesGCM.NonceSize())
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err.Error())
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return fmt.Sprintf("%x", ciphertext)
+
+	return string(ciphertext)
 }
 
 func Decrypt(encryptedString string, keyString string) (decryptedString string) {
@@ -38,12 +40,12 @@ func Decrypt(encryptedString string, keyString string) (decryptedString string) 
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(err.Error())
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
 	nonceSize := aesGCM.NonceSize()
@@ -52,8 +54,8 @@ func Decrypt(encryptedString string, keyString string) (decryptedString string) 
 
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		panic(err.Error())
+		zap.L().Error("An error occured", zap.Error(err))
 	}
 
-	return fmt.Sprintf("%s", plaintext)
+	return string(plaintext)
 }
