@@ -1,0 +1,38 @@
+services:
+  kmsapi:
+    image: paisleypark/kmsapi:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "5200:3003"
+    environment:
+      - ENV=development
+      - CONNECTION_STRINGS__DB_CONNECTION=gorm:password@tcp(db:3306)/kms?charset=utf8&parseTime=True&loc=Local
+    networks:
+      - back-tier
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:latest
+    ports:
+      - "3306"
+    restart: always
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_USER: "gorm"
+      MYSQL_PASSWORD: "password"
+      MYSQL_DATABASE: "kms"
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - back-tier
+
+networks:
+  front-tier: {}
+  back-tier: {}
+      
