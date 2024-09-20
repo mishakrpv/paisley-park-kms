@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -16,14 +17,13 @@ import (
 )
 
 func main() {
-	viper.AutomaticEnv()
-	viper.SetConfigFile(".env")
-	err := viper.ReadInConfig()
+	err := loadConfiguration()
 	if err != nil {
-		zap.L().Fatal("Failed to read in config", zap.Error(err))
+		zap.L().Error("Failed to load configuration", zap.Error(err))
 	}
 
 	configureLogger()
+
 	migrateDb(viper.GetString("CONNECTION_STRINGS__DB_CONNECTION"))
 
 	r := gin.Default()
@@ -44,10 +44,34 @@ func configureRoutes(r *gin.Engine) {
 	r.POST("/keys", routes.POSTKeys)
 }
 
+func loadConfiguration() error {
+	viper.SetConfigFile("appsettings.json")
+	err := viper.ReadInConfig()
+	if err != nil {
+		return err
+	}
+
+	viper.SetConfigFile(fmt.Sprintf("appsettings.%s.json", os.Getenv("ENV")))
+	err = viper.MergeInConfig()
+	if err != nil {
+		return err
+	}
+
+	viper.SetConfigFile(".env")
+	err = viper.MergeInConfig()
+	if err != nil {
+		return err
+	}
+
+	viper.AutomaticEnv()
+
+	return nil
+}
+
 func configureLogger() {
 	var logger *zap.Logger
 
-	env := viper.GetString("APP_ENV")
+	env := viper.GetString("ENV")
 
 	if env == "production" {
 		logger = zap.Must(zap.NewProduction())
@@ -66,7 +90,9 @@ func configureLogger() {
 func migrateDb(dsn string) {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		zap.L().Fatal(err.Error())
+		zap.L().Fatal("Failed to open database connection",
+			zap.String("dsn", dsn),
+			zap.Error(err))
 	}
 
 	migrationsPath := "infrastructure/migrations"
