@@ -29,6 +29,12 @@ func (r *MySqlDekRepository) Create(dek *entities.DataEncryptionKey) error {
 	return r.db.Create(dek).Error
 }
 
+func (r *MySqlDekRepository) FindDeksByAccountId(accountId string) []entities.DataEncryptionKey {
+	var keys []entities.DataEncryptionKey
+	r.db.Find(&keys, "account_id = ?", accountId)
+	return keys
+}
+
 func (r *MySqlDekRepository) Delete(keyId string) error {
 	return r.db.Delete(&entities.DataEncryptionKey{}, keyId).Error
 }
