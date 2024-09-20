@@ -3,7 +3,6 @@ package routes
 import (
 	"net/http"
 
-	"github.com/spf13/viper"
 	"github.com/gin-gonic/gin"
 
 	"paisleypark/kms/infrastructure/repositories"
@@ -12,7 +11,7 @@ import (
 )
 
 func POSTKeys(c *gin.Context) {
-	repository := repositories.NewMySqlDekRepository(viper.GetString("CONNECTION_STRINGS__DB_CONNECTION"))
+	repository := repositories.NewGormDekRepository(Db)
 	handler := handlers.NewCreateDekHandler(repository)
 
 	var json requests.CreateDataEncryptionKeyRequest

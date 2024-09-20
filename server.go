@@ -88,7 +88,8 @@ func configureLogger() {
 }
 
 func migrateDb(dsn string) {
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	var err error
+	routes.Db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		zap.L().Fatal("Failed to open database connection",
 			zap.String("dsn", dsn),
@@ -123,7 +124,7 @@ func migrateDb(dsn string) {
 			zap.L().Error("An error occured", zap.Error(err))
 		}
 
-		err = db.Exec(string(sqlScript)).Error
+		err = routes.Db.Exec(string(sqlScript)).Error
 		if err != nil {
 			zap.L().Error("An error occured", zap.Error(err))
 		}
