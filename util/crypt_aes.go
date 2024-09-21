@@ -10,9 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func Encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
+func Encrypt(bytesToEncrypt []byte, keyString string) (encryptedString string) {
 	key, _ := hex.DecodeString(keyString)
-	plaintext := []byte(stringToEncrypt)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -29,7 +28,7 @@ func Encrypt(stringToEncrypt string, keyString string) (encryptedString string) 
 		zap.L().Error("An error occured", zap.Error(err))
 	}
 
-	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
+	ciphertext := aesGCM.Seal(nonce, nonce, bytesToEncrypt, nil)
 
 	return string(ciphertext)
 }

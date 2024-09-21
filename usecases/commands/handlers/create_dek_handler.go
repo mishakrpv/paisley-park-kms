@@ -1,19 +1,14 @@
 package handlers
 
 import (
-	// "crypto/aes"
-	// "crypto/cipher"
-	// "crypto/rand"
-	// "io"
-	// "os"
-
 	"paisleypark/kms/domain/entities"
+	config "paisleypark/kms/interfaces/configuration"
 	interfaces "paisleypark/kms/interfaces/repositories"
 	"paisleypark/kms/usecases/commands/requests"
-	// "paisleypark/kms/util"
+	"paisleypark/kms/util"
 
 	"github.com/google/uuid"
-	// "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 type CreateDekHandler struct {
@@ -25,35 +20,44 @@ func NewCreateDekHandler(r interfaces.DataEncryptionKeyRepository) *CreateDekHan
 }
 
 func (handler *CreateDekHandler) Execute(request *requests.CreateDataEncryptionKeyRequest) error {
-	// key := util.NewByteSequence(256)
-	// masterKey := []byte(os.Getenv("MASTER_KEY"))
-
-	// c, err := aes.NewCipher(masterKey)
-	// if err != nil {
-	// 	zap.L().Error("An error occured", zap.Error(err))
-	// }
-
-	// gcm, err := cipher.NewGCM(c)
-	// if err != nil {
-	// 	zap.L().Error("An error occured", zap.Error(err))
-	// }
-
-	// nonce := make([]byte, gcm.NonceSize())
-
-	// if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-	// 	zap.L().Error("An error occured", zap.Error(err))
-	// }
-
-	// gcm.Seal(nonce, nonce, *key, nil)
 
 	accountId, err := uuid.Parse(request.AccountID)
 	if err != nil {
+		zap.L().Debug("Failed to parse \"account_id\"", zap.Error(err))
 		return err
 	}
 
-	dek := entities.NewDataEncryptionKey(accountId, request.Name, request.Region, request.Algorithm,  request.RotationPeriod, "131")
+	var size int
+	switch request.Algorithm {
+	case "AES-256":
+		size = 32
+	case "AES-192":
+		size = 24
+	case "AES-128":
+		size = 16
+	case "AES-256 HSM":
+		size = 32
+	}
 
-	handler.Repository.Create(dek)
+	key, err := util.RandomBytes(size)
+	if err != nil {
+		zap.L().Error("An error occured", zap.Error(err))
+		return err
+	}
+
+	dek := entities.NewDataEncryptionKey(
+		accountId,
+		request.Name,
+		request.Region,
+		request.Algorithm,
+		request.RotationPeriod,
+		util.Encrypt(key, config.Config.Get("MASTER_KEY")))
+
+	err = handler.Repository.Create(dek)
+	if err != nil {
+		zap.L().Error("An error occured", zap.Error(err))
+		return err
+	}
 
 	return nil
 }

@@ -2,17 +2,15 @@ package util
 
 import (
 	"crypto/rand"
-
-	"go.uber.org/zap"
 )
 
-func NewByteSequence(length int) *[]byte {
-	randomBytes := make([]byte, length)
+func RandomBytes(size int) ([]byte, error) {
+	bytes := make([]byte, size)
 
-	_, err := rand.Read(randomBytes)
+	_, err := rand.Read(bytes)
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return nil, err
 	}
 
-	return &randomBytes
+	return bytes, nil
 }
