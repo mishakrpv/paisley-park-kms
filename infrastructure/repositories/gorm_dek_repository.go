@@ -22,6 +22,12 @@ func (r *GormDekRepository) Create(dek *entities.DataEncryptionKey) error {
 	return r.db.Create(dek).Error
 }
 
+func (r *GormDekRepository) FindById(keyId string) *entities.DataEncryptionKey {
+	var key entities.DataEncryptionKey
+	r.db.First(&key, "key_id = ?", keyId)
+	return &key
+}
+
 func (r *GormDekRepository) FindDeksByAccountId(accountId string) []entities.DataEncryptionKey {
 	var keys []entities.DataEncryptionKey
 	r.db.Find(&keys, "account_id = ?", accountId)

@@ -1,3 +1,1 @@
 CREATE DATABASE IF NOT EXISTS `kms_db`;
-
-USE `kms_db`;

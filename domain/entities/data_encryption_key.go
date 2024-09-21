@@ -2,9 +2,11 @@ package entities
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type DataEncryptionKey struct {
@@ -41,6 +43,14 @@ func NewDataEncryptionKey(
 
 func (dek *DataEncryptionKey) Identifier() (keyIdentifier string) {
 	keyIdentifier = fmt.Sprintf("pprn:ppws:kms:%s:%s:key/%s", dek.Region, dek.AccountID, dek.KeyID)
+	return
+}
+
+func UUIDFromIdentifier(identifier string) (keyId uuid.UUID) {
+	keyId, err := uuid.Parse(strings.Split(identifier, "/")[1])
+	if err != nil {
+		zap.L().Warn("Wrong key identifier format", zap.String("key_identifier", identifier))
+	}
 	return
 }
 

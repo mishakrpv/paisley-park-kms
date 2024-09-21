@@ -19,9 +19,13 @@ func main() {
 	configureLogging()
 	config.Config = NewConfigurationManager()
 
-	err := migrateDb(config.Config.Get("CONNECTION_STRINGS__DB_CONNECTION"))
+	connectionString := config.Config.Get("CONNECTION_STRINGS__DB_CONNECTION")
+
+	err := migrateDb(connectionString)
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		zap.L().Warn("Something went wrong while migrating the db",
+		zap.String("connection_string", connectionString),
+		zap.Error(err))
 	}
 
 	r := gin.Default()
@@ -39,6 +43,8 @@ func main() {
 		authorize.GET("/keys", routes.GETKeys)
 
 		authorize.POST("/keys", routes.POSTKeys)
+		authorize.POST("/encrypt", routes.POSTEncrypt)
+		authorize.POST("/decrypt", routes.POSTDecrypt)
 	}
 
 	r.Run(":3003")
@@ -48,6 +54,11 @@ func configureLogging() {
 	var logger *zap.Logger
 
 	env := os.Getenv("ENV")
+
+	if env == "" {
+		env = "development"
+		os.Setenv("ENV", env)
+	}
 
 	if env == "production" {
 		logger = zap.Must(zap.NewProduction())

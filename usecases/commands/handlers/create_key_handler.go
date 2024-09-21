@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/base64"
+
 	"paisleypark/kms/domain/entities"
 	config "paisleypark/kms/interfaces/configuration"
 	interfaces "paisleypark/kms/interfaces/repositories"
@@ -45,13 +47,21 @@ func (handler *CreateDekHandler) Execute(request *requests.CreateDataEncryptionK
 		return err
 	}
 
+	masterKey, _ := base64.StdEncoding.DecodeString(config.Config.Get("MASTER_KEY"))
+
+	ciphertext, err := util.Encrypt(key, masterKey)
+	if err != nil {
+		zap.L().Error("An error occured", zap.Error(err))
+		return err
+	}
+
 	dek := entities.NewDataEncryptionKey(
 		accountId,
 		request.Name,
 		request.Region,
 		request.Algorithm,
 		request.RotationPeriod,
-		util.Encrypt(key, config.Config.Get("MASTER_KEY")))
+		base64.RawStdEncoding.EncodeToString(ciphertext))
 
 	err = handler.Repository.Create(dek)
 	if err != nil {

@@ -4,57 +4,51 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/hex"
 	"io"
-
-	"go.uber.org/zap"
 )
 
-func Encrypt(bytesToEncrypt []byte, keyString string) (encryptedString string) {
-	key, _ := hex.DecodeString(keyString)
-
-	block, err := aes.NewCipher(key)
+func Encrypt(bytesToEncrypt []byte, key []byte) ([]byte, error) {
+	c, err := aes.NewCipher(key)
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return nil, err
 	}
 
-	aesGCM, err := cipher.NewGCM(block)
+	gcm, err := cipher.NewGCM(c)
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return nil, err
 	}
 
-	nonce := make([]byte, aesGCM.NonceSize())
+	nonce := make([]byte, gcm.NonceSize())
+
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return nil, err
 	}
 
-	ciphertext := aesGCM.Seal(nonce, nonce, bytesToEncrypt, nil)
-
-	return string(ciphertext)
+	return gcm.Seal(nonce, nonce, bytesToEncrypt, nil), nil
 }
 
-func Decrypt(encryptedString string, keyString string) (decryptedString string) {
-	key, _ := hex.DecodeString(keyString)
-	enc, _ := hex.DecodeString(encryptedString)
-
-	block, err := aes.NewCipher(key)
+func Decrypt(bytesToDecrypt []byte, key []byte) ([]byte, error) {
+	c, err := aes.NewCipher(key)
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return nil, err
 	}
 
-	aesGCM, err := cipher.NewGCM(block)
+	gcm, err := cipher.NewGCM(c)
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return nil, err
 	}
 
-	nonceSize := aesGCM.NonceSize()
+	nonceSize := gcm.NonceSize()
+	// if len(ciphertext) < nonceSize {
+	//     return "", err
+	// }
 
-	nonce, ciphertext := enc[:nonceSize], enc[nonceSize:]
+	nonce, bytesToDecrypt := bytesToDecrypt[:nonceSize], bytesToDecrypt[nonceSize:]
 
-	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := gcm.Open(nil, nonce, bytesToDecrypt, nil)
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return nil, err
 	}
 
-	return string(plaintext)
+	return plaintext, nil
 }
