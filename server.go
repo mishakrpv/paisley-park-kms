@@ -17,11 +17,7 @@ import (
 )
 
 func main() {
-	err := loadConfiguration()
-	if err != nil {
-		zap.L().Error("Failed to load configuration", zap.Error(err))
-	}
-
+	loadConfiguration()
 	configureLogger()
 
 	migrateDb(viper.GetString("CONNECTION_STRINGS__DB_CONNECTION"))
@@ -47,39 +43,32 @@ func configureRoutes(r *gin.Engine) {
 	authorized.Use(RequireAuthorization())
 	{
 		authorized.GET("/keys", routes.GETKeys)
-	
+
 		authorized.POST("/keys", routes.POSTKeys)
 	}
 }
 
-func loadConfiguration() error {
+func loadConfiguration() {
+	env := os.Getenv("ENV")
+
+	if env == "" {
+		env = "development"
+		os.Setenv("ENV", env)
+	}
+
 	viper.SetConfigFile("appsettings.json")
-	err := viper.ReadInConfig()
-	if err != nil {
-		return err
-	}
-
-	viper.SetConfigFile(fmt.Sprintf("appsettings.%s.json", os.Getenv("ENV")))
-	err = viper.MergeInConfig()
-	if err != nil {
-		return err
-	}
-
+	viper.ReadInConfig()
+	viper.SetConfigFile(fmt.Sprintf("appsettings.%s.json", env))
+	viper.MergeInConfig()
 	viper.SetConfigFile(".env")
-	err = viper.MergeInConfig()
-	if err != nil {
-		return err
-	}
-
+	viper.MergeInConfig()
 	viper.AutomaticEnv()
-
-	return nil
 }
 
 func configureLogger() {
 	var logger *zap.Logger
 
-	env := viper.GetString("ENV")
+	env := os.Getenv("ENV")
 
 	if env == "production" {
 		logger = zap.Must(zap.NewProduction())
@@ -91,8 +80,7 @@ func configureLogger() {
 
 	defer logger.Sync()
 
-	logger.Info("Zap logger configured successfully",
-		zap.String("environment", env))
+	logger.Info("Zap logger configured successfully", zap.String("environment", env))
 }
 
 func migrateDb(dsn string) {
@@ -136,5 +124,7 @@ func migrateDb(dsn string) {
 		if err != nil {
 			zap.L().Error("An error occured", zap.Error(err))
 		}
+
+		zap.L().Info("Migration has been applied", zap.String("from_filename", file.Name()))
 	}
 }

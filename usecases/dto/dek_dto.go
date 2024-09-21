@@ -5,16 +5,16 @@ import (
 )
 
 type DekDto struct {
-	AccountID   string `json:"account_id"`
-	KeyID       string `json:"key_id"`
-	DateCreated string `json:"date_created"`
+	KeyIdentifier  string `json:"key_identifier"`
+	DateCreated    string `json:"date_created"`
+	RotationPeriod int    `json:"rotation_period"`
 }
 
 func MapDekToDto(key *entities.DataEncryptionKey) *DekDto {
 	dto := DekDto{
-		AccountID:   key.AccountID.String(),
-		KeyID:       key.KeyID.String(),
-		DateCreated: key.DateCreated.String(),
+		KeyIdentifier:  key.Identifier(),
+		DateCreated:    key.DateCreated.String(),
+		RotationPeriod: key.RotationPeriod,
 	}
 
 	return &dto
