@@ -1,71 +1,50 @@
 package main
 
 import (
-	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"paisleypark/kms/http/routes"
+	config "paisleypark/kms/interfaces/configuration"
 )
 
 func main() {
-	loadConfiguration()
-	configureLogger()
+	configureLogging()
+	config.Config = NewConfigurationManager()
 
-	migrateDb(viper.GetString("CONNECTION_STRINGS__DB_CONNECTION"))
+	err := migrateDb(config.Config.Get("CONNECTION_STRINGS__DB_CONNECTION"))
+	if err != nil {
+		zap.L().Error("An error occured", zap.Error(err))
+	}
 
 	r := gin.Default()
 
-	r.Use(gin.Recovery())
-
-	configureRoutes(r)
-
-	r.Run(":3003")
-}
-
-func configureRoutes(r *gin.Engine) {
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
 	})
 
-	authorized := r.Group("/")
+	authorize := r.Group("/")
 
-	authorized.Use(RequireAuthorization())
+	authorize.Use(RequireAuthorization())
 	{
-		authorized.GET("/keys", routes.GETKeys)
+		authorize.GET("/keys", routes.GETKeys)
 
-		authorized.POST("/keys", routes.POSTKeys)
-	}
-}
-
-func loadConfiguration() {
-	env := os.Getenv("ENV")
-
-	if env == "" {
-		env = "development"
-		os.Setenv("ENV", env)
+		authorize.POST("/keys", routes.POSTKeys)
 	}
 
-	viper.SetConfigFile("appsettings.json")
-	viper.ReadInConfig()
-	viper.SetConfigFile(fmt.Sprintf("appsettings.%s.json", env))
-	viper.MergeInConfig()
-	viper.SetConfigFile(".env")
-	viper.MergeInConfig()
-	viper.AutomaticEnv()
+	r.Run(":3003")
 }
 
-func configureLogger() {
+func configureLogging() {
 	var logger *zap.Logger
 
 	env := os.Getenv("ENV")
@@ -80,11 +59,10 @@ func configureLogger() {
 
 	defer logger.Sync()
 
-	logger.Info("Zap logger configured successfully", zap.String("environment", env))
+	logger.Info("Starting up", zap.String("environment", env))
 }
 
-func migrateDb(dsn string) {
-	var err error
+func migrateDb(dsn string) (err error) {
 	routes.Db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		zap.L().Fatal("Failed to open database connection",
@@ -92,6 +70,7 @@ func migrateDb(dsn string) {
 			zap.Error(err))
 	}
 
+	// TODO: debug the rest of the function
 	migrationsPath := "infrastructure/migrations"
 
 	var files []fs.FileInfo
@@ -111,20 +90,22 @@ func migrateDb(dsn string) {
 		return nil
 	})
 	if err != nil {
-		zap.L().Error("An error occured", zap.Error(err))
+		return err
 	}
 
 	for _, file := range files {
 		sqlScript, err := os.ReadFile(filepath.Join(migrationsPath, file.Name()))
 		if err != nil {
-			zap.L().Error("An error occured", zap.Error(err))
+			return err
 		}
 
 		err = routes.Db.Exec(string(sqlScript)).Error
 		if err != nil {
-			zap.L().Error("An error occured", zap.Error(err))
+			return err
 		}
 
 		zap.L().Info("Migration has been applied", zap.String("from_filename", file.Name()))
 	}
+
+	return nil
 }
