@@ -40,8 +40,6 @@ func main() {
 
 	authorize.Use(RequireAuthorization())
 	{
-		authorize.GET("/keys", routes.GETKeys)
-
 		authorize.POST("/keys", routes.POSTKeys)
 		authorize.POST("/encrypt", routes.POSTEncrypt)
 		authorize.POST("/decrypt", routes.POSTDecrypt)
@@ -81,7 +79,7 @@ func migrateDb(dsn string) (err error) {
 			zap.Error(err))
 	}
 
-	// TODO: debug the rest of the function
+	// TODO: prettify the rest of the function
 	migrationsPath := "infrastructure/migrations"
 
 	var files []fs.FileInfo

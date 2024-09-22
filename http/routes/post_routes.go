@@ -6,66 +6,66 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"paisleypark/kms/infrastructure/repositories"
-	"paisleypark/kms/usecases/commands/handlers"
-	"paisleypark/kms/usecases/commands/requests"
+	"paisleypark/kms/usecases/commands/createkey"
+	"paisleypark/kms/usecases/commands/decrypt"
+	"paisleypark/kms/usecases/commands/encrypt"
 )
 
 func POSTKeys(c *gin.Context) {
-	repository := repositories.NewGormDekRepository(Db)
-	handler := handlers.NewCreateDekHandler(repository)
+	repository := repositories.NewGormSkRepository(Db)
+	handler := createkey.NewCreateKeyHandler(repository)
 
-	var json requests.CreateDataEncryptionKeyRequest
+	var json createkey.CreateKeyRequest
 
 	if err := c.ShouldBindJSON(&json); err != nil {
 		return
 	}
 
-	err := handler.Execute(&json)
+	dto, err := handler.Execute(&json)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(err.Status, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "you are great"})
+	c.JSON(http.StatusOK, &dto)
 }
 
 func POSTEncrypt(c *gin.Context) {
-	repository := repositories.NewGormDekRepository(Db)
-	handler := handlers.NewEncryptHandler(repository)
+	repository := repositories.NewGormSkRepository(Db)
+	handler := encrypt.NewEncryptHandler(repository)
 
-	var json requests.EncryptRequest
-	
+	var json encrypt.EncryptRequest
+
 	if err := c.ShouldBindJSON(&json); err != nil {
 		return
 	}
 
-	response, err := handler.Execute(&json)
-
+	ciphertextBlob, err := handler.Execute(&json)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(err.Status, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, *response)
+	c.JSON(http.StatusOK, gin.H{"ciphertext_blob": &ciphertextBlob})
 }
 
 func POSTDecrypt(c *gin.Context) {
-	repository := repositories.NewGormDekRepository(Db)
-	handler := handlers.NewDecryptHandler(repository)
+	repository := repositories.NewGormSkRepository(Db)
+	handler := decrypt.NewDecryptHandler(repository)
 
-	var json requests.DecryptRequest
-	
+	var json decrypt.DecryptRequest
+
 	if err := c.ShouldBindJSON(&json); err != nil {
 		return
 	}
 
-	response, err := handler.Execute(&json)
+	plaintext, err := handler.Execute(&json)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(err.Status, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, *response)
+	c.JSON(http.StatusOK, &plaintext)
 }
