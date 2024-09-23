@@ -2,11 +2,10 @@ package createkey
 
 import (
 	"encoding/base64"
-	"net/http"
 
 	"paisleypark/kms/domain/entities/keys/symmetric"
-	config "paisleypark/kms/interfaces/configuration"
 	interfaces "paisleypark/kms/interfaces/repositories"
+	"paisleypark/kms/interfaces/services"
 	"paisleypark/kms/usecases/dto"
 	"paisleypark/kms/util"
 
@@ -22,50 +21,46 @@ func NewCreateKeyHandler(r interfaces.SymmetricKeyRepository) *CreateKeyHandler 
 	return &CreateKeyHandler{repo: r}
 }
 
-func (h *CreateKeyHandler) Execute(r *CreateKeyRequest) (*dto.KeyDTO, *util.HttpErr) {
+func (h *CreateKeyHandler) Execute(r *CreateKeyRequest) (k *dto.KeyDTO, e *util.HttpError) {
 	accountId, err := uuid.Parse(r.AccountID)
 	if err != nil {
-		return nil, util.HandleErr(http.StatusBadRequest, "incorrect account id")
+		e = util.ErrInvalidAccountId
+		return
 	}
 
 	size, exists := symmetric.MapKeySize[r.KeySpec]
 	if !exists {
-		return nil, util.HandleErr(http.StatusBadRequest, "unsupported key specification")
+		e = util.ErrUnsupportedKeySpec
+		return
 	}
 
 	keyMaterial, err := util.RandomBytes(size)
 	if err != nil {
-		return nil, util.HandleErr(http.StatusInternalServerError, err.Error())
+		e = util.ErrInternalServer(err)
+		return
 	}
 
-	zap.L().Debug("Key material generated", zap.ByteString("key_material", keyMaterial))
+	masterKey := services.MasterKey()
 
-	masterKey := config.Config.Get("MASTER_KEY")
-	masterKeyMaterial, err := base64.StdEncoding.DecodeString(masterKey)
+	ciphertext, err := util.Encrypt(keyMaterial, masterKey)
 	if err != nil {
-		return nil, util.HandleErr(http.StatusInternalServerError, err.Error())
+		e = util.ErrInternalServer(err)
+		return
 	}
 
-	zap.L().Debug("Master key retrieved",
-		zap.String("master_key", masterKey),
-		zap.String("size", string(rune(len(masterKeyMaterial)))))
-
-	encryptedKeyMaterial, err := util.Encrypt(keyMaterial, masterKeyMaterial)
-	if err != nil {
-		return nil, util.HandleErr(http.StatusInternalServerError, err.Error())
-	}
-
-	ciphertext := base64.StdEncoding.EncodeToString(encryptedKeyMaterial)
+	encodedCiphertext := base64.StdEncoding.EncodeToString(ciphertext)
 
 	// validate region
-	sk := symmetric.NewKey(accountId, r.Region, r.Description, r.KeySpec, ciphertext)
+	sk := symmetric.NewKey(accountId, r.Region, r.Description, r.KeySpec, encodedCiphertext)
 
 	err = h.repo.Create(sk)
 	if err != nil {
-		return nil, util.HandleErr(http.StatusInternalServerError, err.Error())
+		e = util.ErrInternalServer(err)
+		return
 	}
 
 	zap.L().Debug("Key created in db", zap.String("key_id", sk.KeyID.String()))
 
-	return dto.MapKeyToDTO(sk), nil
+	k = dto.MapKeyToDTO(sk)
+	return
 }

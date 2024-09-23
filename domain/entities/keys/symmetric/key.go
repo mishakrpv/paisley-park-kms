@@ -40,7 +40,7 @@ func NewKey(
 func UUIDFromPPRN(pprn string) (keyId uuid.UUID, err error) {
 	substrings := strings.Split(pprn, "/")
 	if len(substrings) != 2 {
-		err = errors.New("incorrect pprn")
+		err = errors.New("invalid pprn")
 		return
 	}
 	keyId, err = uuid.Parse(substrings[1])

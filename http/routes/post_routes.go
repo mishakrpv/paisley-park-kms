@@ -24,7 +24,7 @@ func POSTKeys(c *gin.Context) {
 	dto, err := handler.Execute(&json)
 
 	if err != nil {
-		c.JSON(err.Status, gin.H{"error": err.Error()})
+		c.JSON(err.Status(), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -43,7 +43,7 @@ func POSTEncrypt(c *gin.Context) {
 
 	ciphertextBlob, err := handler.Execute(&json)
 	if err != nil {
-		c.JSON(err.Status, gin.H{"error": err.Error()})
+		c.JSON(err.Status(), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -63,7 +63,7 @@ func POSTDecrypt(c *gin.Context) {
 	plaintext, err := handler.Execute(&json)
 
 	if err != nil {
-		c.JSON(err.Status, gin.H{"error": err.Error()})
+		c.JSON(err.Status(), gin.H{"error": err.Error()})
 		return
 	}
 

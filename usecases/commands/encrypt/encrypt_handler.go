@@ -2,15 +2,10 @@ package encrypt
 
 import (
 	"encoding/base64"
-	"fmt"
-	"net/http"
-
-	config "paisleypark/kms/interfaces/configuration"
 
 	interfaces "paisleypark/kms/interfaces/repositories"
+	"paisleypark/kms/interfaces/services"
 	"paisleypark/kms/util"
-
-	"go.uber.org/zap"
 )
 
 type EncryptHandler struct {
@@ -21,51 +16,35 @@ func NewEncryptHandler(r interfaces.SymmetricKeyRepository) *EncryptHandler {
 	return &EncryptHandler{repo: r}
 }
 
-func (h *EncryptHandler) Execute(r *EncryptRequest) (string, *util.HttpErr) {
+func (h *EncryptHandler) Execute(r *EncryptRequest) (s string, e *util.HttpError) {
 	key, err := h.repo.GetKeyById(r.KeyID)
 	if err != nil {
-		return "", util.HandleErr(http.StatusNotFound, err.Error())
+		e = util.ErrKeyNotFound
+		return
 	}
 
-	if key == nil {
-		return "", util.HandleErr(http.StatusNotFound, "key not found")
-	}
+	ciphertext, _ := base64.StdEncoding.DecodeString(key.Ciphertext)
 
-	encryptedKeyMaterial, err := base64.StdEncoding.DecodeString(key.Ciphertext)
+	masterKey := services.MasterKey()
+
+	keyMaterial, err := util.Decrypt(ciphertext, masterKey)
 	if err != nil {
-		return "", util.HandleErr(http.StatusInternalServerError, err.Error())
+		e = util.ErrInternalServer(err)
+		return
 	}
 
-	zap.L().Debug("Encrypted key material decoded", zap.String("key_id", r.KeyID))
+	plaintext := []byte(r.Plaintext)
 
-	masterKey := config.Config.Get("MASTER_KEY")
-	masterKeyMaterial, err := base64.StdEncoding.DecodeString(masterKey)
+	ciphertext, err = util.Encrypt(plaintext, keyMaterial)
 	if err != nil {
-		return "", util.HandleErr(http.StatusInternalServerError, err.Error())
+		e = util.ErrInternalServer(err)
+		return
 	}
 
-	zap.L().Debug("Master key retrieved",
-		zap.String("master_key", masterKey),
-		zap.String("size", fmt.Sprint(len(masterKeyMaterial))))
+	encodedCiphertext := base64.StdEncoding.EncodeToString(ciphertext)
 
-	keyMaterial, err := util.Decrypt(encryptedKeyMaterial, masterKeyMaterial)
-	if err != nil {
-		return "", util.HandleErr(http.StatusInternalServerError, err.Error())
-	}
+	ciphertextBlob := key.PPRN() + "." + encodedCiphertext
 
-	decodedPlaintext, err := base64.StdEncoding.DecodeString(r.Plaintext)
-	if err != nil {
-		return "", util.HandleErr(http.StatusBadRequest, err.Error())
-	}
-
-	encryptedPlaintext, err := util.Encrypt(decodedPlaintext, keyMaterial)
-	if err != nil {
-		return "", util.HandleErr(http.StatusInternalServerError, err.Error())
-	}
-
-	ciphertext := base64.StdEncoding.EncodeToString(encryptedPlaintext)
-
-	payload := key.PPRN() + "." + ciphertext
-
-	return base64.StdEncoding.EncodeToString([]byte(payload)), nil
+	s = base64.StdEncoding.EncodeToString([]byte(ciphertextBlob))
+	return
 }

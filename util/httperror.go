@@ -2,25 +2,21 @@ package util
 
 import (
 	"errors"
-
-	"go.uber.org/zap"
 )
 
-type HttpErr struct {
-	Status int
-	Err    error
+type HttpError struct {
+	status int
+	msg    string
 }
 
-func (e *HttpErr) Error() string { return string(rune(e.Status)) + ": " + e.Err.Error() }
-
-func (e *HttpErr) Unwrap() error { return e.Err }
-
-func (e *HttpErr) Timeout() bool {
-	t, ok := e.Err.(interface{ Timeout() bool })
-	return ok && t.Timeout()
+func NewHttpError(status int, msg string) *HttpError {
+	return &HttpError{status: status, msg: msg}
 }
 
-func HandleErr(status int, msg string) *HttpErr {
-	zap.L().Error("An error occured", zap.Error(errors.New(msg)))
-	return &HttpErr{Status: status, Err: errors.New(msg)}
-}
+func (e *HttpError) Status() int { return e.status }
+
+func (e *HttpError) Error() string { return e.msg }
+
+func (e *HttpError) HttpError() (int, string) { return e.status, e.msg }
+
+func (e *HttpError) Unwrap() error { return errors.New(e.msg) }
